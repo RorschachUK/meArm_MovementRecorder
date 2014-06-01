@@ -168,6 +168,20 @@ void loop() {
             //go through steps
             for (int i=0; i< instructions.count(); i++) {
               instruction instr = instructions.pop();
+              //Update UI
+              nokia.fillRect(0,32, 84, 16, WHITE);
+              nokia.setCursor(0,32);
+              nokia.print(F("Replay step "));
+              nokia.print(i+1);
+              nokia.setCursor(0,40);
+              nokia.print("(");
+              nokia.print(int(instr._x));
+              nokia.print(",");
+              nokia.print(int(instr._y));
+              nokia.print(",");
+              nokia.print(int(instr._z));
+              nokia.print(")");
+              nokia.display();
               if (instr._type == "g")
                 if (instr._gripper) {
                   arm.gotoPoint(instr._x, instr._y, instr._z);
@@ -178,6 +192,7 @@ void loop() {
                 }
               else if (instr._type == "m")
                 arm.gotoPoint(instr._x, instr._y, instr._z);
+              //put back on queue
               instructions.push(instr);
             }
             //reset to start state
