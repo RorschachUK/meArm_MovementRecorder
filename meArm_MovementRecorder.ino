@@ -67,13 +67,16 @@
 
 //If not using Adafruit board and wiring PWM directly, comment out this line
 #define USEADAFRUIT
-
+//...but due to Arduino bug please ALSO comment out the two includes between
+//the ifdef and the else, and comment IN the two includes between the else
+//and the endif.  This is because Arduino scans for includes without caring
+//about ifdefs/ifndefs.
 #ifdef USEADAFRUIT
 #include "meArm_Adafruit.h"
 #include <Adafruit_PWMServoDriver.h>
 #else
-#include "meArm.h"
-#include <Servo.h>
+//#include "meArm.h"
+//#include <Servo.h>
 #endif
 
 #include <Wire.h>
