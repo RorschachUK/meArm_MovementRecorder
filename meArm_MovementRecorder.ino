@@ -64,8 +64,18 @@
  * resistors - 10k on the GPIO pins (DC, CE, RST, Clk, Din) and 100ohm on the
  * backlight BL.
  */
+
+//If not using Adafruit board and wiring PWM directly, comment out this line
+#define USEADAFRUIT
+
+#ifdef USEADAFRUIT
 #include "meArm_Adafruit.h"
 #include <Adafruit_PWMServoDriver.h>
+#else
+#include "meArm.h"
+#include <Servo.h>
+#endif
+
 #include <Wire.h>
 #include <ClassicController.h>
 #include <Adafruit_GFX.h>
@@ -120,7 +130,12 @@ void setup() {
   nokia.println(F("Replay steps"));
   nokia.display();
 
+#ifdef USEADAFRUIT
   arm.begin();
+#else
+  arm.begin(11,10,9,6);
+#endif
+  
   arm.openGripper();
 
   cc.begin(WII_PLAYER_1);
