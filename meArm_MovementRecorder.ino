@@ -79,6 +79,7 @@
 //#include <Servo.h>
 #endif
 
+#include <SPI.h>
 #include <Wire.h>
 #include <ClassicController.h>
 #include <Adafruit_GFX.h>
