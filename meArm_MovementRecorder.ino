@@ -84,36 +84,16 @@
 #include <ClassicController.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
-#include <QueueList.h>
 
-//Class holding one instruction
-class instruction {
-public:
-  instruction(bool grip, float x, float y, float z) {
-    _type = "g";
-    _x=x; 
-    _y=y; 
-    _z=z;
-    _gripper = grip;
-  }
-  instruction(float x, float y, float z) {
-    _type="m";
-    _x=x; 
-    _y=y; 
-    _z=z; 
-    _gripper = false;
-  }
-  instruction() {
-    _type="";
-    _x=0; 
-    _y=0; 
-    _z=0; 
-    _gripper = false;
-  }
-  String _type;
-  float _x,_y,_z;
-  bool _gripper;
-};
+#define MAXINSTR 50
+
+typedef struct {
+  char type;
+  float x;
+  float y;
+  float z;
+  bool grip;
+} Instr;
 
 //hardware instances
 meArm arm;
@@ -121,24 +101,20 @@ ClassicController cc;
 Adafruit_PCD8544 nokia = Adafruit_PCD8544(2, 3, A2, A1, A0);
 
 //Instructions list
-QueueList<instruction> instructions;
+Instr instructions[MAXINSTR];
+int instrTop = -1;
 
 //Menu control
 int cursor = 0;
 bool lastButtonPushed = true;
-
-void clear() {
- while(!instructions.isEmpty())
-   instructions.pop();
-}
 
 void replay() {
   //reset to start state
   arm.gotoPoint(0,100,50);
   arm.openGripper();
   //go through steps
-  for (int i=0; i< instructions.count(); i++) {
-    instruction instr = instructions.pop();
+  for (int i=0; i <= instrTop; i++) {
+    Instr instr = instructions[i];
     //Update UI
     nokia.fillRect(0,32, 84, 16, WHITE);
     nokia.setCursor(0,32);
@@ -146,26 +122,25 @@ void replay() {
     nokia.print(i+1);
     nokia.setCursor(0,40);
     nokia.print("(");
-    nokia.print(int(instr._x));
+    nokia.print(int(instr.x));
     nokia.print(",");
-    nokia.print(int(instr._y));
+    nokia.print(int(instr.y));
     nokia.print(",");
-    nokia.print(int(instr._z));
+    nokia.print(int(instr.z));
     nokia.print(")");
     nokia.display();
-    if (instr._type == "g")
-      if (instr._gripper) {
-        arm.gotoPoint(instr._x, instr._y, instr._z);
+    if (instr.type == 'g')
+      if (instr.grip) {
+        arm.gotoPoint(instr.x, instr.y, instr.z);
         arm.openGripper();
       } 
       else {
-        arm.gotoPoint(instr._x, instr._y, instr._z);
+        arm.gotoPoint(instr.x, instr.y, instr.z);
         arm.closeGripper();
       }
-    else if (instr._type == "m")
-      arm.gotoPoint(instr._x, instr._y, instr._z);
+    else if (instr.type == 'm')
+      arm.gotoPoint(instr.x, instr.y, instr.z);
     //put back on queue
-    instructions.push(instr);
   }
   //reset to start state
   arm.gotoPoint(0,100,50);
@@ -175,7 +150,7 @@ void replay() {
 void setup() {
   //Setup static elements of UI
   nokia.begin();
-  nokia.setContrast(60);
+  nokia.setContrast(40);
   nokia.clearDisplay(); // show splashscreen
   nokia.setTextSize(1);
   nokia.setTextColor(BLACK);
@@ -188,7 +163,7 @@ void setup() {
   nokia.display();
 
 #ifdef USEADAFRUIT
-  arm.begin();
+  arm.begin(-1);
 #else
   arm.begin(11,10,9,6);
 #endif
@@ -226,13 +201,19 @@ void loop() {
       switch(cursor) {
       case 0: 
         { // save instruction
-          instruction newInstr(arm.getX(), arm.getY(), arm.getZ());
-          instructions.push(newInstr);
+          if (instrTop < MAXINSTR - 1) {
+            Instr newInstr;
+            newInstr.type='m';
+            newInstr.x = arm.getX();
+            newInstr.y = arm.getY();
+            newInstr.z = arm.getZ();
+            instructions[++instrTop] = newInstr;
+          }
           break;
         }
       case 1: 
         { // clear instructions
-          clear();
+          instrTop = -1;
           break;
         }
       case 2: 
@@ -250,17 +231,31 @@ void loop() {
     if (cc.button_plus_start())
       replay();
     if (cc.button_minus_select())
-      clear();
+      instrTop = -1;
     //gripper control
     if (cc.shoulder_left() > 16) {
       arm.openGripper();
-      instruction newInstr(true, arm.getX(), arm.getY(), arm.getZ());
-      instructions.push(newInstr);
+      if (instrTop < MAXINSTR - 1) {
+        Instr newInstr;
+        newInstr.type='g';
+        newInstr.grip = true;
+        newInstr.x = arm.getX();
+        newInstr.y = arm.getY();
+        newInstr.z = arm.getZ();
+        instructions[++instrTop] = newInstr;
+      }
     } 
     else if (cc.shoulder_right() > 16) {
       arm.closeGripper();
-      instruction newInstr(false, arm.getX(), arm.getY(), arm.getZ());
-      instructions.push(newInstr);
+      if (instrTop < MAXINSTR - 1) {
+        Instr newInstr;
+        newInstr.type='g';
+        newInstr.grip = false;
+        newInstr.x = arm.getX();
+        newInstr.y = arm.getY();
+        newInstr.z = arm.getZ();
+        instructions[++instrTop] = newInstr;
+      }
     }
   }
 
@@ -288,7 +283,7 @@ void loop() {
   nokia.setCursor(0, cursor * 8);
   nokia.print(">");
   nokia.setCursor(0,32);
-  nokia.print(instructions.count());
+  nokia.print(instrTop + 1);
   nokia.print(F(" steps saved"));
   nokia.setCursor(0,40);
   nokia.print("(");
@@ -302,4 +297,3 @@ void loop() {
 
   delay(20);
 }
-
